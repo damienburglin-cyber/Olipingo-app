@@ -50,4 +50,5 @@ Launcher icon: `node tools/icons/render.js` renders the PNG layers from `tools/i
 Only pages served as claude.ai artifacts (`https://*.frame.claudeusercontent.com`) see
 `window.OlipingoApp`. The page posts JSON `{id, cmd, ...}`; the app answers `{id, ok, ...}`.
 Commands: `hello` (app version), `copy` (`text` to the clipboard), `share` (`text` through the
-Android share sheet), `openUrl` (`https` only, opened outside the app).
+Android share sheet), `openUrl` (`https` only, opened outside the app), `save` (`name`, `text`: a
+`.json` backup written to the phone's Downloads, Android 10+, no storage permission).

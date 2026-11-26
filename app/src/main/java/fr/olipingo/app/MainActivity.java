@@ -34,6 +34,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.Arrays;
@@ -260,7 +261,8 @@ public class MainActivity extends Activity {
 
     /* ---------- Bridge: only claude.ai artifact pages can call it ----------
        The page posts {"id","cmd",...}; the app answers {"id","ok",...}.
-       hello -> {version}; copy {text}; share {text,title}; openUrl {url} (https only). */
+       hello -> {version}; copy {text}; share {text,title}; openUrl {url} (https only);
+       save {name, text} -> writes a .json backup to the phone's Downloads (Android 10+), answers {name}. */
     private void handle(String json, JavaScriptReplyProxy r) {
         String id = "";
         try {
@@ -269,7 +271,7 @@ public class MainActivity extends Activity {
             JSONObject out = new JSONObject().put("id", id).put("ok", true);
             switch (in.optString("cmd")) {
                 case "hello":
-                    out.put("app", "olipingo").put("version", VERSION).put("commands", new JSONArray(Arrays.asList("hello", "copy", "share", "openUrl")));
+                    out.put("app", "olipingo").put("version", VERSION).put("commands", new JSONArray(Arrays.asList("hello", "copy", "share", "openUrl", "save")));
                     break;
                 case "copy": {
                     ClipboardManager cm = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
@@ -287,6 +289,22 @@ public class MainActivity extends Activity {
                     openOutside(u);
                     break;
                 }
+                case "save": {
+                    /* Runs off the main thread: a backup can weigh a few megabytes. */
+                    final String sid = id, name = safeName(in.optString("name")), text = in.optString("text");
+                    new Thread(() -> {
+                        JSONObject o = new JSONObject();
+                        try {
+                            String saved = saveDownload(name, text);
+                            o.put("id", sid).put("ok", saved != null);
+                            if (saved != null) o.put("name", saved); else o.put("error", "android_too_old");
+                        } catch (Exception e) {
+                            try { o.put("id", sid).put("ok", false).put("error", "write_failed"); } catch (Exception ignored) { }
+                        }
+                        ui.post(() -> { try { r.postMessage(o.toString()); } catch (Exception ignored) { } });
+                    }).start();
+                    return;
+                }
                 default:
                     out.put("ok", false).put("error", "unknown_command");
             }
@@ -294,6 +312,28 @@ public class MainActivity extends Activity {
         } catch (Exception e) {
             try { r.postMessage(new JSONObject().put("id", id).put("ok", false).put("error", "bad_request").toString()); } catch (Exception ignored) { }
         }
+    }
+
+    private static String safeName(String n) {
+        n = n == null ? "" : n.replaceAll("[^A-Za-z0-9._-]", "-");
+        if (!n.endsWith(".json")) n = (n.isEmpty() ? "olipingo-sauvegarde" : n) + ".json";
+        return n.length() > 80 ? n.substring(n.length() - 80) : n;
+    }
+
+    /* Android 10+: the file goes to Downloads through MediaStore, which needs no storage permission. */
+    private String saveDownload(String name, String text) throws Exception {
+        if (Build.VERSION.SDK_INT < 29) return null;
+        android.content.ContentValues v = new android.content.ContentValues();
+        v.put(MediaStore.Downloads.DISPLAY_NAME, name);
+        v.put(MediaStore.Downloads.MIME_TYPE, "application/json");
+        v.put(MediaStore.Downloads.IS_PENDING, 1);
+        Uri u = getContentResolver().insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, v);
+        if (u == null) throw new Exception("insert");
+        try (OutputStream out = getContentResolver().openOutputStream(u)) { out.write(text.getBytes("UTF-8")); }
+        v.clear();
+        v.put(MediaStore.Downloads.IS_PENDING, 0);
+        getContentResolver().update(u, v, null, null);
+        return name;
     }
 
     /* ---------- Updates from this repo's releases ---------- */

@@ -3,6 +3,9 @@
 The newest version comes first. The release workflow copies the section of the version it
 publishes into the release notes, which the app shows in its update dialog.
 
+## 0.1.3
+Sauvegarde depuis le téléphone : dans Olipingo, « Sauvegarder mes données » propose « Enregistrer sur le téléphone » et range le fichier dans Téléchargements. « Copier mes données » passe aussi par l'appli.
+
 ## 0.1.2
 Mises à jour plus sages : l'appli ouvre l'écran d'installation d'Android au lieu d'installer elle-même, comme Echo, pour que Play Protect ne la signale plus. Elle cherche une nouvelle version quand tu reviens dessus après 10 minutes (au lieu de 30).
 
