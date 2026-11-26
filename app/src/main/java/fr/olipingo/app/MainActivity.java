@@ -2,12 +2,10 @@ package fr.olipingo.app;
 
 import android.app.Activity;
 import android.app.AlertDialog;
-import android.app.PendingIntent;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Intent;
 import android.content.pm.PackageInfo;
-import android.content.pm.PackageInstaller;
 import android.content.pm.PackageManager;
 import android.content.pm.Signature;
 import android.net.Uri;
@@ -34,10 +32,8 @@ import androidx.webkit.WebViewCompat;
 import androidx.webkit.WebViewFeature;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.InputStream;
-import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.Arrays;
@@ -56,8 +52,7 @@ import org.json.JSONObject;
    - every release is signed with the same private key (never the public debug key, which Play Protect flags);
    - before installing, the app checks that the downloaded file carries that same signature and a higher
      version, and refuses anything else;
-   - on Android 12+ the update goes through PackageInstaller and asks for no extra confirmation when Android
-     allows it (the app updating itself); otherwise Android shows its usual one-tap confirmation. */
+   - the update is opened in Android's own installer screen (one tap to confirm), never installed silently. */
 public class MainActivity extends Activity {
     static String VERSION = "0";
     static long VERSION_CODE = 0;
@@ -408,29 +403,20 @@ public class MainActivity extends Activity {
         return out;
     }
 
-    private void commit(File f) throws Exception {
-        PackageInstaller pi = getPackageManager().getPackageInstaller();
-        PackageInstaller.SessionParams p = new PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL);
-        p.setAppPackageName(getPackageName());
-        if (Build.VERSION.SDK_INT >= 31) p.setRequireUserAction(PackageInstaller.SessionParams.USER_ACTION_NOT_REQUIRED);
-        int id = pi.createSession(p);
-        try (PackageInstaller.Session s = pi.openSession(id)) {
-            try (InputStream in = new FileInputStream(f); OutputStream out = s.openWrite("olipingo.apk", 0, f.length())) {
-                byte[] buf = new byte[65536];
-                int n;
-                while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
-                s.fsync(out);
-            }
-            int fl = PendingIntent.FLAG_UPDATE_CURRENT | (Build.VERSION.SDK_INT >= 31 ? PendingIntent.FLAG_MUTABLE : 0);
-            PendingIntent done = PendingIntent.getBroadcast(this, id, new Intent(this, InstallReceiver.class), fl);
-            s.commit(done.getIntentSender());
-        }
+    /* 0.1.2: the update is handed to Android's own installer screen, as Echo does. 0.1.0-0.1.1 installed it
+       themselves through PackageInstaller without asking, which is what Play Protect watches for in apps
+       that download and install other apps; it flagged Olipingo. */
+    private void commit(File f) {
+        Uri u = FileProvider.getUriForFile(this, "fr.olipingo.app.files", f);
+        Intent i = new Intent(Intent.ACTION_VIEW).setDataAndType(u, "application/vnd.android.package-archive")
+            .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_ACTIVITY_NEW_TASK);
+        ui.post(() -> startActivity(i));
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        if (SystemClock.elapsedRealtime() - lastCheck > 30 * 60 * 1000L && (updateDialog == null || !updateDialog.isShowing())) {
+        if (SystemClock.elapsedRealtime() - lastCheck > 10 * 60 * 1000L && (updateDialog == null || !updateDialog.isShowing())) {
             lastCheck = SystemClock.elapsedRealtime();
             checkUpdate();
         }

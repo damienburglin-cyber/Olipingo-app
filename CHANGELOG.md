@@ -3,6 +3,9 @@
 The newest version comes first. The release workflow copies the section of the version it
 publishes into the release notes, which the app shows in its update dialog.
 
+## 0.1.2
+Mises à jour plus sages : l'appli ouvre l'écran d'installation d'Android au lieu d'installer elle-même, comme Echo, pour que Play Protect ne la signale plus. Elle cherche une nouvelle version quand tu reviens dessus après 10 minutes (au lieu de 30).
+
 ## 0.1.1
 Une photo choisie dans la galerie est bien envoyée pour l'analyse (les photos HEIC sont converties en JPEG). Le bouton « Envoyer à Olipingo » de Foulée ouvre directement l'appli.
 

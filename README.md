@@ -27,9 +27,10 @@ on claude.ai, and the project notes stay in the private Olipingo repo.
   uninstalling the app (and signing in again).
 - Before installing an update, the app checks the downloaded APK: same package, higher version code,
   and the **same signing certificate** as the installed app. Anything else is refused.
-- On Android 12+ the update goes through `PackageInstaller` with `USER_ACTION_NOT_REQUIRED`: when
-  Android allows an app to update itself, no extra confirmation is shown; otherwise Android shows its
-  usual one-tap confirmation. `targetSdk` stays recent, which Android requires for that.
+- The update is opened in **Android's own installer screen** (one tap to confirm), as in Echo-app.
+  0.1.0 and 0.1.1 installed updates themselves through `PackageInstaller` without asking: Play Protect
+  watches for exactly that in apps that download and install APKs, and flagged Olipingo. Do not go back
+  to silent installs.
 - Permissions are kept to two: network, and installing its own updates. Photos go through the phone's
   camera app, so the app never asks for the camera. No backup of app data (`allowBackup=false`), no
   clear-text traffic.
