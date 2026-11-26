@@ -1,0 +1,41 @@
+plugins { id 'com.android.application' }
+android {
+    namespace 'fr.olipingo.app'
+    compileSdk 34
+    defaultConfig {
+        applicationId 'fr.olipingo.app'
+        minSdk 24
+        // Kept recent on purpose: Android only lets an app update itself without asking
+        // when it targets a recent SDK (see MainActivity.install).
+        targetSdk 34
+        versionCode 1
+        versionName '0.1.0'
+    }
+    signingConfigs {
+        // The private release key is never in this repo. GitHub Actions reads it from the repo
+        // secrets OLIPINGO_KEYSTORE_B64 and OLIPINGO_KEYSTORE_PASSWORD (alias: olipingo).
+        // Every release carries the same signature, so updates install over the previous version.
+        release {
+            storeFile file(System.getenv('OLIPINGO_KEYSTORE') ?: 'no-release-key.p12')
+            storeType 'pkcs12'
+            storePassword System.getenv('OLIPINGO_KEYSTORE_PASSWORD')
+            keyAlias 'olipingo'
+            keyPassword System.getenv('OLIPINGO_KEYSTORE_PASSWORD')
+        }
+    }
+    buildTypes {
+        release {
+            signingConfig signingConfigs.release
+            minifyEnabled false
+        }
+    }
+    lint { checkReleaseBuilds false }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+dependencies {
+    implementation 'androidx.webkit:webkit:1.11.0'
+    implementation 'androidx.core:core:1.13.1'
+}
