@@ -91,9 +91,29 @@ public class MainActivity extends Activity {
             WebViewCompat.addWebMessageListener(web, "OlipingoApp", Collections.singleton(ARTIFACT_ORIGINS),
                 (view, message, origin, isMainFrame, reply) -> ui.post(() -> handle(message.getData(), reply)));
         }
-        if (state != null) web.restoreState(state); else web.loadUrl(HOME);
+        String deep = deepLink(getIntent());
+        if (deep != null) web.loadUrl(deep);
+        else if (state != null) web.restoreState(state);
+        else web.loadUrl(HOME);
         lastCheck = SystemClock.elapsedRealtime();
         checkUpdate();
+    }
+
+    /* olipingo://open/name opens the artifact at #name (a plain name only, as claude.ai passes it on). */
+    private static String deepLink(Intent i) {
+        if (i == null || !Intent.ACTION_VIEW.equals(i.getAction()) || i.getData() == null) return null;
+        Uri u = i.getData();
+        if (!"olipingo".equals(u.getScheme())) return null;
+        String f = u.getPath() == null ? null : u.getPath().replaceFirst("^/", "");
+        return HOME + (f != null && f.matches("[A-Za-z0-9-]{1,40}") ? "#" + f : "");
+    }
+
+    @Override
+    protected void onNewIntent(Intent i) {
+        super.onNewIntent(i);
+        setIntent(i);
+        String deep = deepLink(i);
+        if (deep != null) web.loadUrl(deep);
     }
 
     /* ---------- The page ---------- */
@@ -193,10 +213,49 @@ public class MainActivity extends Activity {
     protected void onActivityResult(int req, int res, Intent data) {
         super.onActivityResult(req, res, data);
         if (req != PICK_FILE || pendingFiles == null) return;
-        Uri[] out = WebChromeClient.FileChooserParams.parseResult(res, data);
-        if ((out == null || out.length == 0) && res == RESULT_OK && pendingPhoto != null && photoTaken()) out = new Uri[] { pendingPhoto };
-        pendingFiles.onReceiveValue(out);
+        final ValueCallback<Uri[]> cb = pendingFiles;
         pendingFiles = null;
+        /* 0.1.1: the photo picker of recent Android versions may answer with a list (ClipData) and no
+           single address; both are read here. Before, a photo chosen in the gallery never reached the page. */
+        java.util.ArrayList<Uri> picked = new java.util.ArrayList<>();
+        if (res == RESULT_OK && data != null) {
+            if (data.getClipData() != null)
+                for (int k = 0; k < data.getClipData().getItemCount(); k++) picked.add(data.getClipData().getItemAt(k).getUri());
+            else if (data.getData() != null) picked.add(data.getData());
+        }
+        if (picked.isEmpty() && res == RESULT_OK && pendingPhoto != null && photoTaken()) picked.add(pendingPhoto);
+        if (picked.isEmpty()) { cb.onReceiveValue(null); return; }
+        /* Gallery photos can be HEIC, which the page cannot read: those are turned into JPEG first. */
+        new Thread(() -> {
+            Uri[] out = new Uri[picked.size()];
+            for (int k = 0; k < out.length; k++) out[k] = asReadableImage(picked.get(k));
+            ui.post(() -> cb.onReceiveValue(out));
+        }).start();
+    }
+
+    private Uri asReadableImage(Uri u) {
+        try {
+            String type = getContentResolver().getType(u);
+            if (type == null || !type.startsWith("image/") || type.equals("image/jpeg") || type.equals("image/png")
+                || type.equals("image/webp") || type.equals("image/gif")) return u;
+            android.graphics.Bitmap bmp;
+            if (Build.VERSION.SDK_INT >= 28) {
+                bmp = android.graphics.ImageDecoder.decodeBitmap(android.graphics.ImageDecoder.createSource(getContentResolver(), u),
+                    (dec, info, src) -> {
+                        int w = info.getSize().getWidth(), h = info.getSize().getHeight(), m = Math.max(w, h);
+                        if (m > 2048) dec.setTargetSize(w * 2048 / m, h * 2048 / m);
+                        dec.setAllocator(android.graphics.ImageDecoder.ALLOCATOR_SOFTWARE);
+                    });
+            } else {
+                try (InputStream in = getContentResolver().openInputStream(u)) { bmp = android.graphics.BitmapFactory.decodeStream(in); }
+            }
+            if (bmp == null) return u;
+            File dir = new File(getCacheDir(), "photos");
+            dir.mkdirs();
+            File f = new File(dir, "photo-" + System.currentTimeMillis() + ".jpg");
+            try (FileOutputStream out = new FileOutputStream(f)) { bmp.compress(android.graphics.Bitmap.CompressFormat.JPEG, 88, out); }
+            return FileProvider.getUriForFile(this, "fr.olipingo.app.files", f);
+        } catch (Exception e) { return u; }
     }
 
     private boolean photoTaken() {

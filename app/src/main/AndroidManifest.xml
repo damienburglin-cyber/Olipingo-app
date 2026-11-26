@@ -22,6 +22,13 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!-- Foulée opens the app with olipingo://open/seance-foulee (Chrome falls back to the artifact). -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="olipingo" android:host="open" />
+            </intent-filter>
         </activity>
         <receiver android:name=".InstallReceiver" android:exported="false" />
         <provider android:name="androidx.core.content.FileProvider" android:authorities="fr.olipingo.app.files"

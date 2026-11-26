@@ -8,8 +8,8 @@ android {
         // Kept recent on purpose: Android only lets an app update itself without asking
         // when it targets a recent SDK (see MainActivity.install).
         targetSdk 34
-        versionCode 1
-        versionName '0.1.0'
+        versionCode 2
+        versionName '0.1.1'
     }
     signingConfigs {
         // The private release key is never in this repo. GitHub Actions reads it from the repo
