@@ -3,6 +3,9 @@
 The newest version comes first. The release workflow copies the section of the version it
 publishes into the release notes, which the app shows in its update dialog.
 
+## 0.2.3
+Une minute de marche compte à partir de 50 pas (au lieu de 60) : une marche lente, vers 2 km/h, est bien comptée.
+
 ## 0.2.2
 Tu peux fermer Olipingo pendant une marche : le compteur de pas du téléphone continue tout seul, et quand tu rouvres l'appli, les pas faits entre-temps sont ajoutés à ta marche. Les minutes de ces pas sont estimées (environ 100 pas par minute). Et quand Olipingo est en arrière-plan, la page se met en pause : moins de batterie.
 

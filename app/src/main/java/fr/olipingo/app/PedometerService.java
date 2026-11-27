@@ -24,7 +24,7 @@ import org.json.JSONObject;
 
 /* The pedometer Damien starts himself ("Je pars marcher") and stops ("J'arrête"), never on its own.
    While it runs, a foreground "health" service listens to the phone's step counter (a low-power chip)
-   and shows an ongoing notification. Steps are kept minute by minute; a minute with at least 60 steps
+   and shows an ongoing notification. Steps are kept minute by minute; a minute with at least 50 steps (0.2.3, was 60: about 2 km/h for Damien)
    is an "active" minute (pauses do not count). It stops by itself after 60 minutes without an active
    minute, and at the end of the day. A finished walk is kept in "pending" until the artifact has
    written it into the day's sessions (bridge commands "walks" and "walksAck").
@@ -36,7 +36,7 @@ public class PedometerService extends Service implements SensorEventListener {
 
     static final String ACTION_START = "fr.olipingo.app.PODO_START";
     static final String ACTION_STOP = "fr.olipingo.app.PODO_STOP";
-    static final int ACTIVE = 60;                    /* steps in a minute to call it active */
+    static final int ACTIVE = 50;                    /* steps in a minute to call it active (about 2 km/h at 1.92 m) */
     static final long IDLE_STOP = 60 * 60 * 1000L;   /* auto stop after 60 min without an active minute */
     static final int MIN_KEEP = 3;                   /* walks under 3 active minutes are not kept */
     private static final String CHANNEL = "marche";
