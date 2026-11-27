@@ -176,10 +176,15 @@ public class MainActivity extends Activity {
                 if (pendingFiles != null) pendingFiles.onReceiveValue(null);
                 pendingFiles = cb;
                 pendingPhoto = null;
-                Intent pick = params.createIntent();
+                boolean image = wantsImage(params);
+                /* 0.1.5: for anything but images (a .json backup to restore), Android gets "any file". The page's
+                   filter ".json,application/json" was passed as is: Android does not read ".json" as a file type,
+                   so the backup could not be picked. The page still checks the file it receives. */
+                Intent pick = image ? params.createIntent()
+                    : new Intent(Intent.ACTION_GET_CONTENT).addCategory(Intent.CATEGORY_OPENABLE).setType("*/*");
                 /* The gallery and, for images, the camera app are offered together. */
-                Intent chooser = Intent.createChooser(pick, "Ajouter une photo");
-                if (wantsImage(params)) {
+                Intent chooser = Intent.createChooser(pick, image ? "Ajouter une photo" : "Choisir un fichier");
+                if (image) {
                     try {
                         File dir = new File(getCacheDir(), "photos");
                         dir.mkdirs();

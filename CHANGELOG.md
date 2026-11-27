@@ -3,6 +3,9 @@
 The newest version comes first. The release workflow copies the section of the version it
 publishes into the release notes, which the app shows in its update dialog.
 
+## 0.1.5
+Restaurer une sauvegarde marche depuis l'appli : le bouton « Choisir un fichier » ouvre bien le sélecteur de fichiers, où l'on retrouve le fichier olipingo-sauvegarde-….json dans Téléchargements.
+
 ## 0.1.4
 Nouvelle icône : les trois anneaux d'Olipingo (marche, renfo, repas) sur fond sable, aussi en icône à thème. Elle accompagne la nouvelle allure de l'appli, « Argile ».
 
