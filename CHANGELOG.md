@@ -3,6 +3,9 @@
 The newest version comes first. The release workflow copies the section of the version it
 publishes into the release notes, which the app shows in its update dialog.
 
+## 0.2.2
+Tu peux fermer Olipingo pendant une marche : le compteur de pas du téléphone continue tout seul, et quand tu rouvres l'appli, les pas faits entre-temps sont ajoutés à ta marche. Les minutes de ces pas sont estimées (environ 100 pas par minute). Et quand Olipingo est en arrière-plan, la page se met en pause : moins de batterie.
+
 ## 0.2.1
 L’écran du podomètre en direct : pendant une marche, Olipingo reçoit tes pas minute par minute et peut te montrer ce qu’il enregistre (pas, minutes actives, la minute en cours). Rien ne change pour la batterie : les pas sont toujours lus toutes les 20 secondes.
 

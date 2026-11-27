@@ -597,6 +597,12 @@ public class MainActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
+        web.onResume();
+        web.resumeTimers();
+        /* A walk still running but its service gone (the app was closed): restart it, it catches up the steps. */
+        if (PedometerService.current(this) != null && podoSensor() && podoMissing().length == 0) {
+            try { podoStart(); } catch (Exception ignored) { }
+        }
         if (SystemClock.elapsedRealtime() - lastCheck > 10 * 60 * 1000L && (updateDialog == null || !updateDialog.isShowing())) {
             lastCheck = SystemClock.elapsedRealtime();
             checkUpdate();
@@ -631,5 +637,8 @@ public class MainActivity extends Activity {
     protected void onPause() {
         super.onPause();
         CookieManager.getInstance().flush();
+        /* Out of sight, the page sleeps (no timers, no animations): the walk is counted by the service. */
+        web.onPause();
+        web.pauseTimers();
     }
 }

@@ -27,7 +27,11 @@ import org.json.JSONObject;
    and shows an ongoing notification. Steps are kept minute by minute; a minute with at least 60 steps
    is an "active" minute (pauses do not count). It stops by itself after 60 minutes without an active
    minute, and at the end of the day. A finished walk is kept in "pending" until the artifact has
-   written it into the day's sessions (bridge commands "walks" and "walksAck"). */
+   written it into the day's sessions (bridge commands "walks" and "walksAck").
+   0.2.2: the walk also keeps the last counter value read ("c") and when ("ct"). The step counter chip
+   keeps counting when Android or Damien closes the app; when the service comes back (the app is
+   reopened), the steps taken meanwhile are added at about 100 steps a minute, ending at the moment
+   they are read. Steps taken after the walk's day has ended are not added. */
 public class PedometerService extends Service implements SensorEventListener {
 
     static final String ACTION_START = "fr.olipingo.app.PODO_START";
@@ -98,7 +102,8 @@ public class PedometerService extends Service implements SensorEventListener {
         sm = (SensorManager) getSystemService(SENSOR_SERVICE);
         Sensor s = sm == null ? null : sm.getDefaultSensor(Sensor.TYPE_STEP_COUNTER);
         if (s == null) { finish(-1); return START_NOT_STICKY; }
-        last = -1;
+        sm.unregisterListener(this);
+        last = cur.has("c") ? (float) cur.optDouble("c") : -1;   /* back after the app was closed: catch up */
         sm.registerListener(this, s, SensorManager.SENSOR_DELAY_NORMAL, 20 * 1000 * 1000);
         h.removeCallbacks(tick);
         h.postDelayed(tick, 60 * 1000L);
@@ -109,17 +114,28 @@ public class PedometerService extends Service implements SensorEventListener {
     public void onSensorChanged(SensorEvent e) {
         if (cur == null) return;
         float v = e.values[0];
-        if (last < 0) { last = v; return; }               /* steps taken before the start are not counted */
-        float d = v < last ? v : v - last;                 /* the counter restarts at 0 after a reboot */
-        last = v;
-        if (d <= 0) return;
         long at = System.currentTimeMillis() - (SystemClock.elapsedRealtimeNanos() - e.timestamp) / 1000000L;
-        int idx = (int) Math.max(0, (at - cur.optLong("debut")) / 60000L);
+        long debut = cur.optLong("debut"), prev = cur.optLong("ct", at);
         try {
-            JSONArray m = cur.getJSONArray("m");
-            while (m.length() <= idx) m.put(0);
-            m.put(idx, m.optInt(idx) + Math.round(d));
-            save();
+            if (last < 0) { last = v; mark(v, at); return; }   /* steps taken before the start are not counted */
+            float d = v < last ? v : v - last;                 /* the counter restarts at 0 after a reboot */
+            last = v;
+            if (at >= dayEnd(debut)) { mark(v, at); h.post(this::onTick); return; }   /* the walk's day is over */
+            if (d > 0) {
+                int n = Math.round(d), idx = (int) Math.max(0, (at - debut) / 60000L);
+                JSONArray m = cur.getJSONArray("m");
+                while (m.length() <= idx) m.put(0);
+                if (at - prev > 2 * 60000L && n > ACTIVE) {
+                    /* Steps counted while the app was closed: about 100 a minute, ending now. */
+                    int from = (int) Math.max(0, (prev - debut) / 60000L);
+                    int k = Math.max(1, Math.min(idx - from + 1, (int) Math.ceil(n / 100.0)));
+                    for (int i = 0, left = n; i < k; i++) {
+                        int j = idx - k + 1 + i, s = left / (k - i);
+                        m.put(j, m.optInt(j) + s); left -= s;
+                    }
+                } else m.put(idx, m.optInt(idx) + n);
+            }
+            mark(v, at);
         } catch (Exception ignored) { }
     }
 
@@ -131,9 +147,8 @@ public class PedometerService extends Service implements SensorEventListener {
         int la = lastActive(cur);
         long lastAt = la < 0 ? debut : debut + (la + 1) * 60000L;
         if (now - lastAt >= IDLE_STOP) { finish(la < 0 ? debut : lastAt); return; }
-        Calendar c = Calendar.getInstance(); c.setTimeInMillis(debut);
-        c.set(Calendar.HOUR_OF_DAY, 23); c.set(Calendar.MINUTE, 59); c.set(Calendar.SECOND, 0);
-        if (now >= c.getTimeInMillis()) { finish(c.getTimeInMillis()); return; }
+        long end = dayEnd(debut);
+        if (now >= end) { finish(end); return; }
         NotificationManager nm = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
         if (nm != null) nm.notify(NOTE_RUN, running());
     }
@@ -170,6 +185,15 @@ public class PedometerService extends Service implements SensorEventListener {
     }
 
     private void save() { prefs(this).edit().putString("cur", cur.toString()).apply(); }
+
+    /* Keeps the last counter value and its time with the walk, so steps can be caught up after a close. */
+    private void mark(float v, long at) throws org.json.JSONException { cur.put("c", (double) v).put("ct", at); save(); }
+
+    static long dayEnd(long debut) {
+        Calendar c = Calendar.getInstance(); c.setTimeInMillis(debut);
+        c.set(Calendar.HOUR_OF_DAY, 23); c.set(Calendar.MINUTE, 59); c.set(Calendar.SECOND, 0); c.set(Calendar.MILLISECOND, 0);
+        return c.getTimeInMillis();
+    }
 
     @Override
     public void onDestroy() {
