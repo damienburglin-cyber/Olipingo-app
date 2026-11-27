@@ -273,7 +273,8 @@ public class MainActivity extends Activity {
        hello -> {version}; copy {text}; share {text,title}; openUrl {url} (https only);
        save {name, text} -> writes a .json backup to the phone's Downloads (Android 10+), answers {name};
        paste -> {code} (the Foulée code FS1… from the clipboard, or ""); keyboard -> shows the soft keyboard;
-       podo {action: status|start|stop|battery} -> {sensor, activity, notif, running, debut, pas, actives, pending};
+       podo {action: status|start|stop|battery} -> {sensor, activity, notif, running, debut, pas, actives, m, now, pending}
+       (m = steps per minute since the start, the last item being the minute in progress; now = phone time);
        walks -> {walks: [{id, debut, fin, m: [steps per minute]}]}; walksAck {ids} forgets the walks the page has saved. */
     private void handle(String json, JavaScriptReplyProxy r) {
         String id = "";
@@ -543,7 +544,12 @@ public class MainActivity extends Activity {
         boolean actOk = Build.VERSION.SDK_INT < 29 || checkSelfPermission("android.permission.ACTIVITY_RECOGNITION") == PackageManager.PERMISSION_GRANTED;
         boolean notOk = Build.VERSION.SDK_INT < 33 || checkSelfPermission("android.permission.POST_NOTIFICATIONS") == PackageManager.PERMISSION_GRANTED;
         out.put("sensor", podoSensor()).put("activity", actOk).put("notif", notOk).put("running", cur != null);
-        if (cur != null) out.put("debut", cur.optLong("debut")).put("pas", PedometerService.steps(cur)).put("actives", PedometerService.active(cur));
+        if (cur != null) {
+            out.put("debut", cur.optLong("debut")).put("pas", PedometerService.steps(cur)).put("actives", PedometerService.active(cur));
+            /* Live screen (0.2.1): steps minute by minute since the start, the last one being the minute in progress. */
+            JSONArray m = cur.optJSONArray("m");
+            out.put("m", m != null ? m : new JSONArray()).put("now", System.currentTimeMillis());
+        }
         out.put("pending", PedometerService.pending(this).length());
     }
 
