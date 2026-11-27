@@ -6,8 +6,8 @@ android {
         applicationId 'fr.olipingo.app'
         minSdk 24
         targetSdk 34
-        versionCode 6
-        versionName '0.1.5'
+        versionCode 7
+        versionName '0.1.6'
     }
     signingConfigs {
         // The private release key is never in this repo. GitHub Actions reads it from the repo

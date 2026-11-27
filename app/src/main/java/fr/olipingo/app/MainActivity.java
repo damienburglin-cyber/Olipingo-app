@@ -63,6 +63,10 @@ public class MainActivity extends Activity {
     private static final int PICK_FILE = 7;
 
     private WebView web;
+    /* A "paste" asked while the window has no focus (Android only lets the focused app read the clipboard). */
+    private JavaScriptReplyProxy pastePending;
+    private String pasteId;
+    private static final java.util.regex.Pattern FOULEE_CODE = java.util.regex.Pattern.compile("FS1[zj]\\.[A-Za-z0-9_-]{8,}");
     private ValueCallback<Uri[]> pendingFiles;
     private Uri pendingPhoto;
     private final Handler ui = new Handler(Looper.getMainLooper());
@@ -267,7 +271,8 @@ public class MainActivity extends Activity {
     /* ---------- Bridge: only claude.ai artifact pages can call it ----------
        The page posts {"id","cmd",...}; the app answers {"id","ok",...}.
        hello -> {version}; copy {text}; share {text,title}; openUrl {url} (https only);
-       save {name, text} -> writes a .json backup to the phone's Downloads (Android 10+), answers {name}. */
+       save {name, text} -> writes a .json backup to the phone's Downloads (Android 10+), answers {name};
+       paste -> {code} (the Foulée code FS1… from the clipboard, or ""); keyboard -> shows the soft keyboard. */
     private void handle(String json, JavaScriptReplyProxy r) {
         String id = "";
         try {
@@ -276,8 +281,25 @@ public class MainActivity extends Activity {
             JSONObject out = new JSONObject().put("id", id).put("ok", true);
             switch (in.optString("cmd")) {
                 case "hello":
-                    out.put("app", "olipingo").put("version", VERSION).put("commands", new JSONArray(Arrays.asList("hello", "copy", "share", "openUrl", "save")));
+                    out.put("app", "olipingo").put("version", VERSION).put("commands", new JSONArray(Arrays.asList("hello", "copy", "share", "openUrl", "save", "paste", "keyboard")));
                     break;
+                case "paste": {
+                    /* Only a Foulée session code ever leaves the clipboard; anything else stays private. */
+                    if (!hasWindowFocus()) {
+                        if (pastePending != null) { try { pastePending.postMessage(new JSONObject().put("id", pasteId).put("ok", false).put("error", "superseded").toString()); } catch (Exception ignored) { } }
+                        pastePending = r; pasteId = id;
+                        return;
+                    }
+                    out.put("code", fouleeCode());
+                    break;
+                }
+                case "keyboard": {
+                    /* The page has focused a text field; Android does not open the keyboard for a focus made by script. */
+                    web.requestFocus();
+                    android.view.inputmethod.InputMethodManager imm = (android.view.inputmethod.InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
+                    if (imm != null) imm.showSoftInput(web, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT);
+                    break;
+                }
                 case "copy": {
                     ClipboardManager cm = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
                     cm.setPrimaryClip(ClipData.newPlainText("Olipingo", in.optString("text")));
@@ -456,6 +478,30 @@ public class MainActivity extends Activity {
         Intent i = new Intent(Intent.ACTION_VIEW).setDataAndType(u, "application/vnd.android.package-archive")
             .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_ACTIVITY_NEW_TASK);
         ui.post(() -> startActivity(i));
+    }
+
+    /* The Foulée code in the clipboard, or "" (no code, empty clipboard, or reading refused). */
+    private String fouleeCode() {
+        try {
+            ClipboardManager cm = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+            if (cm == null || !cm.hasPrimaryClip() || cm.getPrimaryClip() == null || cm.getPrimaryClip().getItemCount() == 0) return "";
+            CharSequence t = cm.getPrimaryClip().getItemAt(0).coerceToText(this);
+            if (t == null) return "";
+            java.util.regex.Matcher m = FOULEE_CODE.matcher(t.toString().replaceAll("\\s+", ""));
+            return m.find() ? m.group() : "";
+        } catch (Exception e) { return ""; }
+    }
+
+    @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        if (hasFocus && pastePending != null) {
+            JavaScriptReplyProxy r = pastePending; String id = pasteId;
+            pastePending = null; pasteId = null;
+            ui.postDelayed(() -> {
+                try { r.postMessage(new JSONObject().put("id", id).put("ok", true).put("code", fouleeCode()).toString()); } catch (Exception ignored) { }
+            }, 150);
+        }
     }
 
     @Override

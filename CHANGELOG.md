@@ -3,6 +3,9 @@
 The newest version comes first. The release workflow copies the section of the version it
 publishes into the release notes, which the app shows in its update dialog.
 
+## 0.1.6
+Retour de Foulée sans geste : en revenant dans Olipingo, la séance copiée par Foulée s'importe toute seule. L'appli ne lit dans le presse-papier que le code de séance, rien d'autre. S'il n'y a pas de code, le curseur se place dans le cadre et le clavier s'ouvre pour coller.
+
 ## 0.1.5
 Restaurer une sauvegarde marche depuis l'appli : le bouton « Choisir un fichier » ouvre bien le sélecteur de fichiers, où l'on retrouve le fichier olipingo-sauvegarde-….json dans Téléchargements.
 

@@ -51,4 +51,8 @@ Only pages served as claude.ai artifacts (`https://*.frame.claudeusercontent.com
 `window.OlipingoApp`. The page posts JSON `{id, cmd, ...}`; the app answers `{id, ok, ...}`.
 Commands: `hello` (app version), `copy` (`text` to the clipboard), `share` (`text` through the
 Android share sheet), `openUrl` (`https` only, opened outside the app), `save` (`name`, `text`: a
-`.json` backup written to the phone's Downloads, Android 10+, no storage permission).
+`.json` backup written to the phone's Downloads, Android 10+, no storage permission), `paste` (answers
+`{code}`: the Foulée session code `FS1…` found in the clipboard, or `""`; nothing else from the clipboard
+ever reaches the page; asked while the window has no focus, it answers once the app gets focus, since
+Android only lets the focused app read the clipboard), `keyboard` (opens the soft keyboard for a field
+the page has just focused).
