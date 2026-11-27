@@ -272,7 +272,9 @@ public class MainActivity extends Activity {
        The page posts {"id","cmd",...}; the app answers {"id","ok",...}.
        hello -> {version}; copy {text}; share {text,title}; openUrl {url} (https only);
        save {name, text} -> writes a .json backup to the phone's Downloads (Android 10+), answers {name};
-       paste -> {code} (the Foulée code FS1… from the clipboard, or ""); keyboard -> shows the soft keyboard. */
+       paste -> {code} (the Foulée code FS1… from the clipboard, or ""); keyboard -> shows the soft keyboard;
+       podo {action: status|start|stop|battery} -> {sensor, activity, notif, running, debut, pas, actives, pending};
+       walks -> {walks: [{id, debut, fin, m: [steps per minute]}]}; walksAck {ids} forgets the walks the page has saved. */
     private void handle(String json, JavaScriptReplyProxy r) {
         String id = "";
         try {
@@ -281,7 +283,7 @@ public class MainActivity extends Activity {
             JSONObject out = new JSONObject().put("id", id).put("ok", true);
             switch (in.optString("cmd")) {
                 case "hello":
-                    out.put("app", "olipingo").put("version", VERSION).put("commands", new JSONArray(Arrays.asList("hello", "copy", "share", "openUrl", "save", "paste", "keyboard")));
+                    out.put("app", "olipingo").put("version", VERSION).put("commands", new JSONArray(Arrays.asList("hello", "copy", "share", "openUrl", "save", "paste", "keyboard", "podo", "walks", "walksAck")));
                     break;
                 case "paste": {
                     /* Only a Foulée session code ever leaves the clipboard; anything else stays private. */
@@ -291,6 +293,40 @@ public class MainActivity extends Activity {
                         return;
                     }
                     out.put("code", fouleeCode());
+                    break;
+                }
+                case "podo": {
+                    /* The pedometer: status, start (asks the permissions first), stop, battery settings. */
+                    String a = in.optString("action");
+                    if ("start".equals(a)) {
+                        String[] miss = podoMissing();
+                        if (miss.length > 0) {
+                            if (podoPending != null) { try { podoPending.postMessage(new JSONObject().put("id", podoId).put("ok", false).put("error", "superseded").toString()); } catch (Exception ignored) { } }
+                            podoPending = r; podoId = id;
+                            requestPermissions(miss, PODO_PERMS);
+                            return;
+                        }
+                        if (!podoSensor()) { out.put("ok", false).put("error", "no_sensor"); podoStatus(out); break; }
+                        podoStart();
+                        out.put("started", true);
+                    } else if ("stop".equals(a)) {
+                        startService(new Intent(this, PedometerService.class).setAction(PedometerService.ACTION_STOP));
+                    } else if ("battery".equals(a)) {
+                        try { startActivity(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + getPackageName()))); } catch (Exception ignored) { }
+                    }
+                    podoStatus(out);
+                    /* The service records the start or the stop a moment later: answer what was asked. */
+                    if (out.optBoolean("started")) { out.put("running", true); if (!out.has("debut")) out.put("debut", System.currentTimeMillis()).put("pas", 0).put("actives", 0); }
+                    if ("stop".equals(a)) out.put("running", false);
+                    break;
+                }
+                case "walks": {
+                    out.put("walks", PedometerService.pending(this));
+                    break;
+                }
+                case "walksAck": {
+                    JSONArray ids = in.optJSONArray("ids");
+                    if (ids != null) PedometerService.ack(this, ids);
                     break;
                 }
                 case "keyboard": {
@@ -478,6 +514,54 @@ public class MainActivity extends Activity {
         Intent i = new Intent(Intent.ACTION_VIEW).setDataAndType(u, "application/vnd.android.package-archive")
             .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_ACTIVITY_NEW_TASK);
         ui.post(() -> startActivity(i));
+    }
+
+    /* ---------- Pedometer ---------- */
+    private static final int PODO_PERMS = 11;
+    private JavaScriptReplyProxy podoPending;
+    private String podoId;
+
+    private String[] podoMissing() {
+        java.util.ArrayList<String> m = new java.util.ArrayList<>();
+        if (Build.VERSION.SDK_INT >= 29 && checkSelfPermission("android.permission.ACTIVITY_RECOGNITION") != PackageManager.PERMISSION_GRANTED) m.add("android.permission.ACTIVITY_RECOGNITION");
+        if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission("android.permission.POST_NOTIFICATIONS") != PackageManager.PERMISSION_GRANTED) m.add("android.permission.POST_NOTIFICATIONS");
+        return m.toArray(new String[0]);
+    }
+
+    private boolean podoSensor() {
+        android.hardware.SensorManager sm = (android.hardware.SensorManager) getSystemService(SENSOR_SERVICE);
+        return sm != null && sm.getDefaultSensor(android.hardware.Sensor.TYPE_STEP_COUNTER) != null;
+    }
+
+    private void podoStart() {
+        Intent i = new Intent(this, PedometerService.class).setAction(PedometerService.ACTION_START);
+        if (Build.VERSION.SDK_INT >= 26) startForegroundService(i); else startService(i);
+    }
+
+    private void podoStatus(JSONObject out) throws org.json.JSONException {
+        JSONObject cur = PedometerService.current(this);
+        boolean actOk = Build.VERSION.SDK_INT < 29 || checkSelfPermission("android.permission.ACTIVITY_RECOGNITION") == PackageManager.PERMISSION_GRANTED;
+        boolean notOk = Build.VERSION.SDK_INT < 33 || checkSelfPermission("android.permission.POST_NOTIFICATIONS") == PackageManager.PERMISSION_GRANTED;
+        out.put("sensor", podoSensor()).put("activity", actOk).put("notif", notOk).put("running", cur != null);
+        if (cur != null) out.put("debut", cur.optLong("debut")).put("pas", PedometerService.steps(cur)).put("actives", PedometerService.active(cur));
+        out.put("pending", PedometerService.pending(this).length());
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int req, String[] perms, int[] res) {
+        super.onRequestPermissionsResult(req, perms, res);
+        if (req != PODO_PERMS || podoPending == null) return;
+        JavaScriptReplyProxy r = podoPending; String id = podoId;
+        podoPending = null; podoId = null;
+        try {
+            JSONObject out = new JSONObject().put("id", id);
+            boolean actOk = Build.VERSION.SDK_INT < 29 || checkSelfPermission("android.permission.ACTIVITY_RECOGNITION") == PackageManager.PERMISSION_GRANTED;
+            if (actOk && podoSensor()) { podoStart(); out.put("ok", true); }
+            else out.put("ok", false).put("error", actOk ? "no_sensor" : "permission");
+            podoStatus(out);
+            if (actOk && podoSensor()) { out.put("running", true).put("started", true); if (!out.has("debut")) out.put("debut", System.currentTimeMillis()).put("pas", 0).put("actives", 0); }
+            r.postMessage(out.toString());
+        } catch (Exception ignored) { }
     }
 
     /* The Foulée code in the clipboard, or "" (no code, empty clipboard, or reading refused). */

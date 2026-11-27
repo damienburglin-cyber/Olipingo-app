@@ -1,9 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- Only two permissions: the network, and installing its own updates. The camera is reached
-         through the phone's camera app, so the app never asks for the camera itself. -->
+    <!-- The network, and installing its own updates. The camera is reached through the phone's camera
+         app, so the app never asks for the camera itself. -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!-- The pedometer, only while Damien runs it ("Je pars marcher"): the step counter (physical
+         activity), its ongoing notification, and the foreground "health" service that keeps it counting. -->
+    <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_HEALTH" />
+    <uses-feature android:name="android.hardware.sensor.stepcounter" android:required="false" />
     <queries>
         <intent><action android:name="android.media.action.IMAGE_CAPTURE" /></intent>
         <intent><action android:name="android.intent.action.VIEW" /><data android:scheme="https" /></intent>
@@ -30,6 +37,7 @@
                 <data android:scheme="olipingo" android:host="open" />
             </intent-filter>
         </activity>
+        <service android:name=".PedometerService" android:exported="false" android:foregroundServiceType="health" />
         <provider android:name="androidx.core.content.FileProvider" android:authorities="fr.olipingo.app.files"
             android:exported="false" android:grantUriPermissions="true">
             <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/file_paths" />

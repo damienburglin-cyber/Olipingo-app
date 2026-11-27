@@ -3,6 +3,9 @@
 The newest version comes first. The release workflow copies the section of the version it
 publishes into the release notes, which the app shows in its update dialog.
 
+## 0.2.0
+Le podomètre : « Je pars marcher » lance le compteur de pas du téléphone, une notification compte avec toi et « Arrêter » termine la marche. Elle s'ajoute à ta journée comme une séance « Dehors » (minutes où tu marches vraiment, pas, km). Il ne tourne que quand tu le lances, et s'arrête seul après une heure sans pas. La première fois, Android demande l'accès à l'activité physique et aux notifications ; sur un téléphone Xiaomi, mets Olipingo en batterie « Pas de restriction ».
+
 ## 0.1.6
 Retour de Foulée sans geste : en revenant dans Olipingo, la séance copiée par Foulée s'importe toute seule. L'appli ne lit dans le presse-papier que le code de séance, rien d'autre. S'il n'y a pas de code, le curseur se place dans le cadre et le clavier s'ouvre pour coller.
 

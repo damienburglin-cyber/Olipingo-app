@@ -31,9 +31,11 @@ on claude.ai, and the project notes stay in the private Olipingo repo.
   0.1.0 and 0.1.1 installed updates themselves through `PackageInstaller` without asking: Play Protect
   watches for exactly that in apps that download and install APKs, and flagged Olipingo. Do not go back
   to silent installs.
-- Permissions are kept to two: network, and installing its own updates. Photos go through the phone's
-  camera app, so the app never asks for the camera. No backup of app data (`allowBackup=false`), no
-  clear-text traffic.
+- Permissions: network, and installing its own updates. Since 0.2.0, also the pedometer's: physical
+  activity (the step counter), notifications, and a foreground "health" service. They are asked only
+  when the pedometer is started for the first time, and the service runs only between "Je pars
+  marcher" and the stop (or one hour without steps). Photos go through the phone's camera app, so the
+  app never asks for the camera. No backup of app data (`allowBackup=false`), no clear-text traffic.
 
 ## How it is built
 
@@ -55,4 +57,12 @@ Android share sheet), `openUrl` (`https` only, opened outside the app), `save` (
 `{code}`: the Foulée session code `FS1…` found in the clipboard, or `""`; nothing else from the clipboard
 ever reaches the page; asked while the window has no focus, it answers once the app gets focus, since
 Android only lets the focused app read the clipboard), `keyboard` (opens the soft keyboard for a field
-the page has just focused).
+the page has just focused), `podo` (`action`: `status`, `start`, `stop`, `battery`; answers the sensor,
+the permissions, and the running walk: `debut`, `pas`, `actives`), `walks` (finished walks waiting for
+the page: `{id, debut, fin, m: [steps per minute]}`), `walksAck` (`ids` the page has saved).
+
+## Pedometer
+
+`PedometerService` listens to the phone's step counter while a walk runs, minute by minute (a minute
+with 60 steps or more is active). It keeps the walk in the app's private storage until the artifact has
+written it into the day as a "dehors" session, so nothing is lost if the page is closed.
