@@ -42,8 +42,8 @@ on claude.ai, and the project notes stay in the private Olipingo repo.
 the matching section of `CHANGELOG.md`. To release: bump `versionCode` and `versionName`, add a
 `CHANGELOG.md` section, push to `main`.
 
-Launcher icon: `node tools/icons/render.js` renders the PNG layers from `tools/icons/icon.html`
-(generated from the mascot sheet in the private Olipingo repo).
+Launcher icon (since 0.1.4: the three rings, walk / strength / meals, on sand): `node tools/icons/render.js` renders the PNG layers from `tools/icons/icon.html`
+(design chosen in the private Olipingo repo, see its docs/decisions.md).
 
 ## Bridge
 

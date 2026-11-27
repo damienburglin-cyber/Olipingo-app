@@ -3,6 +3,9 @@
 The newest version comes first. The release workflow copies the section of the version it
 publishes into the release notes, which the app shows in its update dialog.
 
+## 0.1.4
+Nouvelle icône : les trois anneaux d'Olipingo (marche, renfo, repas) sur fond sable, aussi en icône à thème. Elle accompagne la nouvelle allure de l'appli, « Argile ».
+
 ## 0.1.3
 Sauvegarde depuis le téléphone : dans Olipingo, « Sauvegarder mes données » propose « Enregistrer sur le téléphone » et range le fichier dans Téléchargements. « Copier mes données » passe aussi par l'appli.
 
